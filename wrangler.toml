@@ -1,0 +1,14 @@
+name = "aston-news"
+compatibility_date = "2024-09-25"
+pages_build_output_dir = "public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "aston-news-db"
+database_id = "eb9b1371-d272-4c1d-a12a-96cde60e1bdb"
+
+# ADMIN_PASSWORD et SESSION_SECRET ne doivent PAS être mis ici.
+# Ajoute-les depuis le tableau de bord Cloudflare :
+# Workers & Pages > ton projet > Settings > Environment variables > Add variable
+#   ADMIN_PASSWORD = AstonNews5898   (coche "Encrypt")
+#   SESSION_SECRET = (une longue chaîne aléatoire, coche "Encrypt")
