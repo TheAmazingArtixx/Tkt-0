@@ -1,31 +1,63 @@
-// Rendu des listes d'articles (page d'accueil + page journal) et de la page article.
+// ===== Aston News — site public =====
+
+const GRADIENTS = {
+  g1: 'linear-gradient(135deg,#1e1640,#0f0c1f)',
+  g2: 'linear-gradient(135deg,#1a2640,#0c1520)',
+  g3: 'linear-gradient(135deg,#261640,#140c20)',
+  g4: 'linear-gradient(135deg,#1f2615,#0c1408)',
+  g5: 'linear-gradient(135deg,#261a10,#150d05)',
+  g6: 'linear-gradient(135deg,#102030,#050e18)',
+};
 
 function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str || '';
-  return div.innerHTML;
+  const d = document.createElement('div');
+  d.textContent = str || '';
+  return d.innerHTML;
 }
 
 function formatDate(iso) {
   try {
-    const d = new Date(iso.replace(' ', 'T') + 'Z');
-    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-  } catch (e) {
-    return '';
-  }
+    return new Date(iso.replace(' ', 'T') + 'Z').toLocaleDateString('fr-FR', {
+      day: 'numeric', month: 'long', year: 'numeric'
+    });
+  } catch { return ''; }
 }
 
-function articleCardHtml(article) {
-  const img = article.cover_image
-    ? `<img src="${article.cover_image}" alt="">`
-    : `<div style="position:absolute;inset:0;background:linear-gradient(135deg,#221c3f,#15102b)"></div>`;
+function parseTags(raw) {
+  try { return JSON.parse(raw || '[]'); } catch { return []; }
+}
+
+function tagsHtml(tags) {
+  if (!tags || !tags.length) return '';
+  return tags.map(t =>
+    `<span class="article-tag">${escapeHtml(t)}</span>`
+  ).join('');
+}
+
+function articleCardHtml(article, featured = false) {
+  const gradient = GRADIENTS[article.gradient] || GRADIENTS.g1;
+  const blur = Number(article.blur) || 0;
+  const tags = parseTags(article.tags);
+
+  let imgHtml = '';
+  if (article.cover_image) {
+    imgHtml = `<img src="${article.cover_image}" alt="" style="${blur ? `filter:blur(${blur}px);transform:scale(1.08)` : ''}">`;
+  } else {
+    imgHtml = `<div style="position:absolute;inset:0;background:${gradient}"></div>`;
+  }
+
   return `
-    <a class="article-card" href="/article.html?slug=${encodeURIComponent(article.slug)}">
-      ${img}
+    <a class="article-card${featured ? ' card-featured' : ''}"
+       href="/article.html?slug=${encodeURIComponent(article.slug)}"
+       style="${article.cover_image ? '' : ''}">
+      ${imgHtml}
+      <div class="card-overlay"></div>
       <div class="card-body">
+        <div class="card-meta">${formatDate(article.published_at)}</div>
+        ${tags.length ? `<div class="card-tags">${tagsHtml(tags)}</div>` : ''}
         <h3>${escapeHtml(article.title)}</h3>
         <p>${escapeHtml(article.excerpt || '')}</p>
-        <span class="read-more">Lire plus →</span>
+        <span class="read-more">Lire l'article →</span>
       </div>
     </a>
   `;
@@ -34,6 +66,7 @@ function articleCardHtml(article) {
 async function loadArticles(targetId, limit) {
   const grid = document.getElementById(targetId);
   if (!grid) return;
+  grid.innerHTML = '';
   try {
     const res = await fetch('/api/articles');
     const data = await res.json();
@@ -44,18 +77,19 @@ async function loadArticles(targetId, limit) {
       grid.innerHTML = `<p class="empty-state">Aucun article publié pour le moment.</p>`;
       return;
     }
-    grid.innerHTML = articles.map(articleCardHtml).join('');
+    grid.innerHTML = articles.map((a, i) => articleCardHtml(a, i === 0)).join('');
   } catch (e) {
     grid.innerHTML = `<p class="empty-state">Impossible de charger les articles.</p>`;
-    console.error(e);
   }
 }
 
 function blockToHtml(block) {
   if (block.type === 'heading') return `<h2>${block.html || ''}</h2>`;
   if (block.type === 'image') {
-    const caption = block.caption ? `<figcaption class="helper-text">${escapeHtml(block.caption)}</figcaption>` : '';
-    return `<figure><img src="${block.src}" alt="${escapeHtml(block.caption || '')}">${caption}</figure>`;
+    if (!block.src) return '';
+    return `<figure><img src="${block.src}" alt="${escapeHtml(block.caption || '')}">
+      ${block.caption ? `<figcaption class="helper-text">${escapeHtml(block.caption)}</figcaption>` : ''}
+    </figure>`;
   }
   return `<p>${block.html || ''}</p>`;
 }
@@ -64,10 +98,7 @@ async function loadSingleArticle() {
   const root = document.getElementById('article-root');
   if (!root) return;
   const slug = new URLSearchParams(window.location.search).get('slug');
-  if (!slug) {
-    root.innerHTML = `<p class="empty-state">Article introuvable.</p>`;
-    return;
-  }
+  if (!slug) { root.innerHTML = `<p class="empty-state">Article introuvable.</p>`; return; }
   try {
     const res = await fetch('/api/articles?slug=' + encodeURIComponent(slug));
     const data = await res.json();
@@ -75,17 +106,18 @@ async function loadSingleArticle() {
     const a = data.article;
     document.title = a.title + ' — Aston News';
     let content = [];
-    try { content = JSON.parse(a.content || '[]'); } catch (e) { content = []; }
+    try { content = JSON.parse(a.content || '[]'); } catch {}
+    const tags = parseTags(a.tags);
 
     root.innerHTML = `
       <a class="back-link" href="/journal.html">← Retour au journal</a>
       ${a.cover_image ? `<div class="cover"><img src="${a.cover_image}" alt=""></div>` : ''}
+      ${tags.length ? `<div class="article-tags-row">${tagsHtml(tags)}</div>` : ''}
       <h1>${escapeHtml(a.title)}</h1>
       <div class="meta">Publié le ${formatDate(a.published_at)}</div>
       <div class="article-body">${content.map(blockToHtml).join('')}</div>
     `;
-  } catch (e) {
+  } catch {
     root.innerHTML = `<p class="empty-state">Cet article n'existe pas ou plus.</p>`;
-    console.error(e);
   }
 }
