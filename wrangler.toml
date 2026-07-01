@@ -6,3 +6,10 @@ pages_build_output_dir = "public"
 binding = "DB"
 database_name = "aston-news-db"
 database_id = "eb9b1371-d272-4c1d-a12a-96cde60e1bdb"
+
+# Variables à ajouter dans Cloudflare → Workers & Pages → astonnews
+# Settings → Environment variables (cocher "Encrypt" pour chacune) :
+#
+#   ADMIN_PASSWORD   = AstonNews5898
+#   SESSION_SECRET   = (longue chaîne aléatoire)
+#   RAPIDAPI_KEY     = 578ecb1d78mshcd99d207193e925p19daa0jsn8e830bd7989d
